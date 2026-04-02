@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Papa's Whatnot Closet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        body { font-family: 'Press Start 2P', system-ui; }
+        .item-hover { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .item-hover:hover { transform: scale(1.05); box-shadow: 0 20px 25px -5px rgb(234 179 8); }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] text-white min-h-screen">
+
+    <div class="max-w-7xl mx-auto px-6 py-8">
+        <div class="flex justify-between items-center mb-8">
+            <div class="flex items-center gap-4">
+                <i class="fas fa-tshirt text-5xl text-yellow-400"></i>
+                <div>
+                    <h1 class="text-4xl font-bold tracking-widest">PAPA'S WHATNOT CLOSET</h1>
+                    <p class="text-xs text-yellow-400">Clothing Inventory • Live on Whatnot</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-6">
+                <div class="text-right">
+                    <div class="text-xs uppercase tracking-widest text-white/60 mb-1">Reservation Email</div>
+                    <input id="emailInput" type="email" value="your-email@example.com" 
+                           class="bg-white/10 border border-white/30 rounded-3xl px-4 py-2 text-sm focus:outline-none focus:border-yellow-400 w-64">
+                </div>
+                
+                <button onclick="addNewItem()" 
+                        class="bg-yellow-400 hover:bg-yellow-500 text-black px-6 py-3 rounded-3xl text-sm font-bold flex items-center gap-2">
+                    <i class="fas fa-plus"></i> ADD NEW ITEM
+                </button>
+            </div>
+        </div>
+
+        <div id="itemsGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8"></div>
+    </div>
+
+    <!-- ADD ITEM MODAL -->
+    <div onclick="if(event.target.id==='addModal')hideAddModal()" id="addModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
+        <div onclick="event.stopImmediatePropagation()" class="bg-[#1a1a2e] border-4 border-yellow-400 rounded-3xl max-w-md w-full mx-4 p-8">
+            <h2 class="text-2xl font-bold mb-6">Add New Clothing Item</h2>
+            <input id="photoUrl" placeholder="Photo URL (imgur or direct link)" class="w-full mb-4 bg-white/10 border border-white/30 rounded-3xl px-5 py-3 text-sm">
+            <input id="title" placeholder="Title (e.g. Vintage Nike Hoodie)" class="w-full mb-4 bg-white/10 border border-white/30 rounded-3xl px-5 py-3 text-sm">
+            <input id="tag" placeholder="Tag (e.g. Streetwear, Vintage)" class="w-full mb-4 bg-white/10 border border-white/30 rounded-3xl px-5 py-3 text-sm">
+            <input id="itemNumber" placeholder="Item Number (e.g. #047)" class="w-full mb-4 bg-white/10 border border-white/30 rounded-3xl px-5 py-3 text-sm">
+            <input id="price" type="number" placeholder="Price ($)" class="w-full mb-6 bg-white/10 border border-white/30 rounded-3xl px-5 py-3 text-sm">
+            
+            <button onclick="saveNewItem()" class="w-full py-4 bg-yellow-400 hover:bg-yellow-500 text-black font-bold rounded-3xl">ADD TO INVENTORY</button>
+            <button onclick="hideAddModal()" class="mt-4 w-full text-white/60 hover:text-white text-sm">Cancel</button>
+        </div>
+    </div>
+
+    <!-- ITEM DETAIL MODAL -->
+    <div onclick="if(event.target.id==='detailModal')hideDetailModal()" id="detailModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
+        <div onclick="event.stopImmediatePropagation()" class="bg-[#1a1a2e] border-4 border-yellow-400 rounded-3xl max-w-md w-full mx-4 p-8">
+            <div id="modalImage" class="w-full aspect-square bg-black/30 rounded-3xl mb-6 overflow-hidden"></div>
+            <h2 id="modalTitle" class="text-2xl font-bold mb-1"></h2>
+            <p id="modalTag" class="text-yellow-400 text-sm mb-4"></p>
+            <div class="grid grid-cols-2 gap-4 text-sm mb-6">
+                <div><span class="text-white/60">Item #</span><br><span id="modalNumber" class="font-bold"></span></div>
+                <div><span class="text-white/60">Price</span><br><span id="modalPrice" class="font-bold text-emerald-400"></span></div>
+            </div>
+            
+            <button onclick="reserveItem()" class="w-full py-4 bg-red-500 hover:bg-red-600 text-white font-bold rounded-3xl mb-3">RESERVE THIS ITEM</button>
+            <button onclick="bookmarkShow()" class="w-full py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-3xl">BOOKMARK NEXT SHOW</button>
+            
+            <button onclick="hideDetailModal()" class="mt-6 w-full text-white/60 hover:text-white text-sm">Close</button>
+        </div>
+    </div>
+
+    <script>
+        let inventory = JSON.parse(localStorage.getItem('papaInventory')) || [];
+        let currentEmail = localStorage.getItem('papaEmail') || 'your-email@example.com';
+
+        function saveInventory() {
+            localStorage.setItem('papaInventory', JSON.stringify(inventory));
+        }
+
+        function renderInventory() {
+            const grid = document.getElementById('itemsGrid');
+            grid.innerHTML = '';
+            
+            if (inventory.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-20 text-white/40">No items yet. Click "ADD NEW ITEM" to get started.</div>`;
+                return;
+            }
+            
+            inventory.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'item-hover bg-white/5 border border-white/10 rounded-3xl overflow-hidden cursor-pointer';
+                div.innerHTML = `
+                    <img src="${item.photoUrl}" alt="${item.title}" class="w-full aspect-square object-cover">
+                    <div class="p-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-bold text-lg">${item.title}</p>
+                                <p class="text-yellow-400 text-sm">${item.tag}</p>
+                            </div>
+                            <p class="text-emerald-400 font-bold">$${item.price}</p>
+                        </div>
+                        <p class="text-xs text-white/60 mt-2">Item #${item.itemNumber}</p>
+                    </div>
+                    <div class="px-4 pb-4 flex gap-2">
+                        <button onclick="event.stopImmediatePropagation(); openDetail(${index});" class="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-3xl text-sm font-bold">VIEW</button>
+                        <button onclick="event.stopImmediatePropagation(); reserveItemDirect(${index});" class="flex-1 py-3 bg-red-500 hover:bg-red-600 rounded-3xl text-sm font-bold">RESERVE</button>
+                    </div>`;
+                grid.appendChild(div);
+            });
+        }
+
+        function addNewItem() {
+            document.getElementById('addModal').classList.remove('hidden');
+            document.getElementById('addModal').classList.add('flex');
+        }
+
+        function hideAddModal() {
+            document.getElementById('addModal').classList.add('hidden');
+            document.getElementById('addModal').classList.remove('flex');
+        }
+
+        function saveNewItem() {
+            const photoUrl = document.getElementById('photoUrl').value || 'https://via.placeholder.com/400?text=No+Photo';
+            const title = document.getElementById('title').value || 'Untitled Item';
+            const tag = document.getElementById('tag').value || 'General';
+            const itemNumber = document.getElementById('itemNumber').value || '000';
+            const price = document.getElementById('price').value || '0';
+
+            inventory.unshift({
+                photoUrl, title, tag, itemNumber, price: parseFloat(price)
+            });
+            saveInventory();
+            hideAddModal();
+            renderInventory();
+        }
+
+        function openDetail(index) {
+            const item = inventory[index];
+            const modal = document.getElementById('detailModal');
+            
+            document.getElementById('modalImage').innerHTML = `<img src="${item.photoUrl}" class="w-full h-full object-cover">`;
+            document.getElementById('modalTitle').textContent = item.title;
+            document.getElementById('modalTag').textContent = item.tag;
+            document.getElementById('modalNumber').textContent = item.itemNumber;
+            document.getElementById('modalPrice').textContent = '$' + item.price;
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            window.currentItemIndex = index;
+        }
+
+        function hideDetailModal() {
+            const modal = document.getElementById('detailModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function reserveItem() {
+            const index = window.currentItemIndex;
+            const item = inventory[index];
+            const email = document.getElementById('emailInput').value || currentEmail;
+            
+            // Simulate sending email
+            alert(`📧 Reservation email sent to ${email}\n\nItem: ${item.title} (#${item.itemNumber})\nPrice: $${item.price}\n\nThe seller has been notified!`);
+            
+            hideDetailModal();
+            
+            // Show success message
+            const success = document.createElement('div');
+            success.className = 'fixed bottom-6 right-6 bg-emerald-400 text-black px-6 py-4 rounded-3xl shadow-2xl text-sm font-bold flex items-center gap-2';
+            success.innerHTML = `✅ Email sent for #${item.itemNumber} — watch your inbox!`;
+            document.body.appendChild(success);
+            
+            setTimeout(() => success.remove(), 4000);
+        }
+
+        function reserveItemDirect(index) {
+            const item = inventory[index];
+            const email = document.getElementById('emailInput').value || currentEmail;
+            
+            alert(`📧 Reservation email sent to ${email}\n\nItem: ${item.title} (#${item.itemNumber})\nPrice: $${item.price}\n\nThe seller has been notified!`);
+            
+            const success = document.createElement('div');
+            success.className = 'fixed bottom-6 right-6 bg-emerald-400 text-black px-6 py-4 rounded-3xl shadow-2xl text-sm font-bold flex items-center gap-2';
+            success.innerHTML = `✅ Email sent for #${item.itemNumber} — watch your inbox!`;
+            document.body.appendChild(success);
+            setTimeout(() => success.remove(), 4000);
+        }
+
+        function bookmarkShow() {
+            alert('📌 Next show bookmarked! You will be reminded when the next live stream goes live.');
+            hideDetailModal();
+        }
+
+        function togglePriceSource() {} // not needed here
+
+        // Initial render
+        function initialize() {
+            document.getElementById('emailInput').value = currentEmail;
+            renderInventory();
+        }
+
+        window.onload = initialize;
+    </script>
+</body>
+</html>
