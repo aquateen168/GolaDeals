@@ -163,21 +163,24 @@
                     const response = await fetch('https://api.imgur.com/3/image', {
                         method: 'POST',
                         headers: {
-                            'Authorization': 'Client-ID 0f9f9f9f9f9f9f9' // Public client ID for basic uploads
+                            'Authorization': 'Client-ID 0f9f9f9f9f9f9f9' // Public client ID
                         },
                         body: formData
                     });
                     
                     const data = await response.json();
-                    const photoUrl = data.data.link;
-                    
-                    inventory.unshift({ photoUrl, title, tag, itemNumber, price: parseFloat(price) });
-                    saveInventory();
-                    hideAddModal();
-                    renderInventory();
-                    alert("✅ Item added successfully with photo uploaded!");
+                    if (data.success) {
+                        const photoUrl = data.data.link;
+                        inventory.unshift({ photoUrl, title, tag, itemNumber, price: parseFloat(price) });
+                        saveInventory();
+                        hideAddModal();
+                        renderInventory();
+                        alert("✅ Item added with photo uploaded successfully!");
+                    } else {
+                        throw new Error("Upload failed");
+                    }
                 } catch (err) {
-                    alert("Image upload failed. Please try again or use a direct image link.");
+                    alert("Image upload failed. Please try again.");
                 }
             };
             
