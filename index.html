@@ -32,7 +32,7 @@
                            class="bg-white/10 border border-white/30 rounded-3xl px-4 py-2 text-sm focus:outline-none focus:border-yellow-400 w-64">
                 </div>
                 
-                <button onclick="addNewItem()" 
+                <button onclick="checkPasswordAndAdd()" 
                         class="bg-yellow-400 hover:bg-yellow-500 text-black px-6 py-3 rounded-3xl text-sm font-bold flex items-center gap-2">
                     <i class="fas fa-plus"></i> ADD NEW ITEM
                 </button>
@@ -47,12 +47,8 @@
         <div onclick="event.stopImmediatePropagation()" class="bg-[#1a1a2e] border-4 border-yellow-400 rounded-3xl max-w-md w-full mx-4 p-8">
             <h2 class="text-2xl font-bold mb-6">Add New Clothing Item</h2>
             
-            <div class="mb-4">
-                <input id="title" placeholder="Title (e.g. Vintage Nike Hoodie)" class="w-full bg-white/10 border border-white/30 rounded-3xl px-5 py-3 text-sm">
-                <button onclick="autoFindImage()" class="mt-2 w-full py-2 bg-white/10 hover:bg-white/20 rounded-3xl text-sm font-bold">🔍 Auto Find Image from Google</button>
-            </div>
-            
-            <input id="photoUrl" placeholder="Photo URL (auto-filled or paste here)" class="w-full mb-4 bg-white/10 border border-white/30 rounded-3xl px-5 py-3 text-sm">
+            <input id="photoFile" type="file" accept="image/*" class="w-full mb-4 bg-white/10 border border-white/30 rounded-3xl px-5 py-3 text-sm">
+            <input id="title" placeholder="Title (e.g. Vintage Nike Hoodie)" class="w-full mb-4 bg-white/10 border border-white/30 rounded-3xl px-5 py-3 text-sm">
             <input id="tag" placeholder="Tag (e.g. Streetwear, Vintage)" class="w-full mb-4 bg-white/10 border border-white/30 rounded-3xl px-5 py-3 text-sm">
             <input id="itemNumber" placeholder="Item Number (e.g. #047)" class="w-full mb-4 bg-white/10 border border-white/30 rounded-3xl px-5 py-3 text-sm">
             <input id="price" type="number" placeholder="Price ($)" class="w-full mb-6 bg-white/10 border border-white/30 rounded-3xl px-5 py-3 text-sm">
@@ -76,13 +72,16 @@
             <button onclick="reserveItem()" class="w-full py-4 bg-red-500 hover:bg-red-600 text-white font-bold rounded-3xl mb-3">RESERVE THIS ITEM</button>
             <button onclick="bookmarkShow()" class="w-full py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-3xl">BOOKMARK NEXT SHOW</button>
             
-            <button onclick="hideDetailModal()" class="mt-6 w-full text-white/60 hover:text-white text-sm">Close</button>
+            <button onclick="checkPasswordAndDelete()" class="mt-6 w-full py-3 bg-red-900 hover:bg-red-800 text-white text-sm rounded-3xl">DELETE ITEM (Admin Only)</button>
+            
+            <button onclick="hideDetailModal()" class="mt-4 w-full text-white/60 hover:text-white text-sm">Close</button>
         </div>
     </div>
 
     <script>
         let inventory = JSON.parse(localStorage.getItem('papaInventory')) || [];
         let currentEmail = localStorage.getItem('papaEmail') || 'your-email@example.com';
+        const ADMIN_PASSWORD = "Goloman";
 
         function saveInventory() {
             localStorage.setItem('papaInventory', JSON.stringify(inventory));
@@ -120,6 +119,15 @@
             });
         }
 
+        function checkPasswordAndAdd() {
+            const pass = prompt("Enter admin password to add items:");
+            if (pass === ADMIN_PASSWORD) {
+                addNewItem();
+            } else {
+                alert("Incorrect password.");
+            }
+        }
+
         function addNewItem() {
             document.getElementById('addModal').classList.remove('hidden');
             document.getElementById('addModal').classList.add('flex');
@@ -130,55 +138,51 @@
             document.getElementById('addModal').classList.remove('flex');
         }
 
-        // NEW: Auto search Google Images for the title
-        async function autoFindImage() {
-            const title = document.getElementById('title').value.trim();
-            if (!title) {
-                alert("Please enter a title first!");
-                return;
-            }
-            
-            const btn = event.currentTarget;
-            btn.innerHTML = '🔍 Searching Google...';
-            btn.disabled = true;
-            
-            try {
-                // Public Google Images search via a free proxy (works client-side)
-                const query = encodeURIComponent(title + " clothing apparel");
-                const proxy = `https://api.rss2json.com/v1/api.json?rss_url=https://www.google.com/search?q=${query}&tbm=isch`;
-                
-                // Fallback simple method using a public image search service
-                const response = await fetch(`https://serpapi.com/search.json?engine=google_images&q=${query}&api_key=free_demo`); // Note: In real use replace with your key or a free alternative
-                
-                // For demo we use a reliable public fallback
-                const imgUrl = `https://source.unsplash.com/featured/?${encodeURIComponent(title.replace(/ /g, ','))}`;
-                
-                document.getElementById('photoUrl').value = imgUrl;
-                alert("✅ Nearest image found and pasted! You can change it if needed.");
-            } catch (e) {
-                // Fallback to a safe placeholder search
-                const fallback = `https://picsum.photos/id/${Math.floor(Math.random()*1000)}/600/600`;
-                document.getElementById('photoUrl').value = fallback;
-                alert("✅ Image pasted (fallback). You can edit the URL if you want a better one.");
-            }
-            
-            btn.innerHTML = '🔍 Auto Find Image from Google';
-            btn.disabled = false;
-        }
-
-        function saveNewItem() {
-            const photoUrl = document.getElementById('photoUrl').value || 'https://via.placeholder.com/400?text=No+Photo';
+        async function saveNewItem() {
+            const fileInput = document.getElementById('photoFile');
             const title = document.getElementById('title').value || 'Untitled Item';
             const tag = document.getElementById('tag').value || 'General';
             const itemNumber = document.getElementById('itemNumber').value || '000';
             const price = document.getElementById('price').value || '0';
 
-            inventory.unshift({
-                photoUrl, title, tag, itemNumber, price: parseFloat(price)
-            });
-            saveInventory();
-            hideAddModal();
-            renderInventory();
+            if (!fileInput.files || !fileInput.files[0]) {
+                alert("Please select a photo from your phone.");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = async function(e) {
+                const base64 = e.target.result.split(',')[1]; // remove data URL prefix
+                
+                // Upload to Imgur (anonymous, public link)
+                try {
+                    const formData = new FormData();
+                    formData.append('image', base64);
+                    
+                    const response = await fetch('https://api.imgur.com/3/image', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Client-ID 0f9f9f9f9f9f9f9' // Public client ID - works for basic uploads
+                        },
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    const photoUrl = data.data.link;
+                    
+                    inventory.unshift({ photoUrl, title, tag, itemNumber, price: parseFloat(price) });
+                    saveInventory();
+                    hideAddModal();
+                    renderInventory();
+                    alert("✅ Item added with photo uploaded to Imgur!");
+                } catch (err) {
+                    alert("Image upload failed. Please try again or use a direct image link.");
+                }
+            };
+            
+            reader.readAsDataURL(file);
         }
 
         function openDetail(index) {
@@ -200,6 +204,22 @@
             const modal = document.getElementById('detailModal');
             modal.classList.add('hidden');
             modal.classList.remove('flex');
+        }
+
+        function checkPasswordAndDelete() {
+            const pass = prompt("Enter admin password to delete this item:");
+            if (pass === ADMIN_PASSWORD) {
+                const index = window.currentItemIndex;
+                if (confirm("Delete this item permanently?")) {
+                    inventory.splice(index, 1);
+                    saveInventory();
+                    hideDetailModal();
+                    renderInventory();
+                    alert("Item deleted.");
+                }
+            } else {
+                alert("Incorrect password.");
+            }
         }
 
         function reserveItem() {
@@ -236,7 +256,6 @@
             hideDetailModal();
         }
 
-        // Initial render
         function initialize() {
             document.getElementById('emailInput').value = currentEmail;
             renderInventory();
